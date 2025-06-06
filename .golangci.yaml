@@ -5,3 +5,7 @@ linters:
     - revive
     - depguard
     - tagalign
+    - godot
+  exclusions:
+    paths:
+      - docs/
