@@ -3,3 +3,9 @@ linters:
   default: all
   disable:
     - revive
+    - depguard
+    - tagalign
+    - godot
+  exclusions:
+    paths:
+      - docs/

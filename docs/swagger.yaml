@@ -1,0 +1,63 @@
+basePath: /
+definitions:
+  main.CreateUserBody:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  main.CreateUserRequest:
+    properties:
+      user:
+        $ref: '#/definitions/main.CreateUserBody'
+    required:
+    - user
+    type: object
+  main.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is an identity management API server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Identity API
+  version: "1.0"
+paths:
+  /identity/v1/users:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with username and password
+      parameters:
+      - description: User creation request
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: User created successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/main.ErrorResponse'
+      summary: Create a new user
+      tags:
+      - users
+swagger: "2.0"
