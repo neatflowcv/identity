@@ -3,3 +3,5 @@ linters:
   default: all
   disable:
     - revive
+    - depguard
+    - tagalign
