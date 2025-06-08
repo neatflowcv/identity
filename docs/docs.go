@@ -16,8 +16,8 @@ const docTemplate = `{
             "email": "support@swagger.io"
         },
         "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+            "name": "Proprietary",
+            "url": "All Rights Reserved"
         },
         "version": "{{.Version}}"
     },
@@ -44,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/main.CreateUserRequest"
+                            "$ref": "#/definitions/model.CreateUserRequest"
                         }
                     }
                 ],
@@ -55,7 +55,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/main.ErrorResponse"
+                            "$ref": "#/definitions/model.ErrorResponse"
                         }
                     }
                 }
@@ -63,7 +63,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "main.CreateUserBody": {
+        "model.CreateUserBody": {
             "type": "object",
             "required": [
                 "password",
@@ -78,18 +78,18 @@ const docTemplate = `{
                 }
             }
         },
-        "main.CreateUserRequest": {
+        "model.CreateUserRequest": {
             "type": "object",
             "required": [
                 "user"
             ],
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/main.CreateUserBody"
+                    "$ref": "#/definitions/model.CreateUserBody"
                 }
             }
         },
-        "main.ErrorResponse": {
+        "model.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
