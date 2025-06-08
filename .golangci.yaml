@@ -6,6 +6,11 @@ linters:
     - depguard
     - tagalign
     - godot
+    - tagliatelle
   exclusions:
     paths:
       - docs/
+  settings:
+    varnamelen:
+      ignore-names:
+        - tc
