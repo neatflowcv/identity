@@ -67,6 +67,17 @@ definitions:
     required:
     - token
     type: object
+  model.RefreshTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -100,7 +111,7 @@ paths:
         "200":
           description: Token refreshed successfully
           schema:
-            $ref: '#/definitions/model.CreateTokenResponse'
+            $ref: '#/definitions/model.RefreshTokenResponse'
         "400":
           description: Bad request
           schema:

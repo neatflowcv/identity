@@ -52,7 +52,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Token refreshed successfully",
                         "schema": {
-                            "$ref": "#/definitions/model.CreateTokenResponse"
+                            "$ref": "#/definitions/model.RefreshTokenResponse"
                         }
                     },
                     "400": {
@@ -255,6 +255,23 @@ const docTemplate = `{
             "properties": {
                 "token": {
                     "$ref": "#/definitions/model.RefreshTokenBody"
+                }
+            }
+        },
+        "model.RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
                 }
             }
         }

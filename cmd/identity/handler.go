@@ -66,7 +66,7 @@ func (h *Handler) CreateUser(ctx *gin.Context) {
 // @Failure 400 {object} model.ErrorResponse "Bad request"
 // @Failure 401 {object} model.ErrorResponse "Unauthorized"
 // @Router /identity/v1/tokens [post]
-func (h *Handler) CreateToken(ctx *gin.Context) {
+func (h *Handler) CreateToken(ctx *gin.Context) { //nolint:dupl
 	var req model.CreateTokenRequest
 
 	err := ctx.ShouldBindJSON(&req)
@@ -106,11 +106,11 @@ func (h *Handler) CreateToken(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param token body model.RefreshTokenRequest true "Token refresh request"
-// @Success 200 {object} model.CreateTokenResponse "Token refreshed successfully"
+// @Success 200 {object} model.RefreshTokenResponse "Token refreshed successfully"
 // @Failure 400 {object} model.ErrorResponse "Bad request"
 // @Failure 401 {object} model.ErrorResponse "Unauthorized"
 // @Router /identity/v1/refresh [post]
-func (h *Handler) RefreshToken(ctx *gin.Context) {
+func (h *Handler) RefreshToken(ctx *gin.Context) { //nolint:dupl
 	var req model.RefreshTokenRequest
 
 	err := ctx.ShouldBindJSON(&req)
@@ -133,7 +133,7 @@ func (h *Handler) RefreshToken(ctx *gin.Context) {
 		return
 	}
 
-	response := model.CreateTokenResponse{
+	response := model.RefreshTokenResponse{
 		TokenType:    string(token.TokenType()),
 		AccessToken:  token.AccessToken(),
 		RefreshToken: token.RefreshToken(),
