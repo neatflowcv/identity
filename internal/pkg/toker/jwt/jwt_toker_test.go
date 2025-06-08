@@ -11,24 +11,20 @@ import (
 func TestJWTToker_CreateToken(t *testing.T) {
 	t.Parallel()
 
-	t.Run("success", func(t *testing.T) {
+	secretKey := []byte("test-secret-key")
+	toker := jwt.NewToker(secretKey)
+	user := domain.NewUser("testuser", "password123")
+	policy := domain.NewTokenPolicy()
 
-		secretKey := []byte("test-secret-key")
-		toker := jwt.NewToker(secretKey)
+	token := toker.CreateToken(user, policy)
 
-		user := domain.NewUser("testuser", "password123")
-		policy := domain.NewTokenPolicy()
-
-		token := toker.CreateToken(user, policy)
-
-		require.NotNil(t, token)
-		require.NotEmpty(t, token.AccessToken())
-		require.NotEmpty(t, token.RefreshToken())
-		require.Equal(t, domain.TokenTypeBearer, token.TokenType())
-		require.NotNil(t, token.Payload())
-		require.Equal(t, "testuser", token.Payload().Username())
-		require.Positive(t, token.ExpiresIn())
-	})
+	require.NotNil(t, token)
+	require.NotEmpty(t, token.AccessToken())
+	require.NotEmpty(t, token.RefreshToken())
+	require.Equal(t, domain.TokenTypeBearer, token.TokenType())
+	require.NotNil(t, token.Payload())
+	require.Equal(t, "testuser", token.Payload().Username())
+	require.Positive(t, token.ExpiresIn())
 }
 
 func TestJWTToker_ParseToken_WithAccessToken(t *testing.T) {
