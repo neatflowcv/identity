@@ -43,6 +43,7 @@ func main() {
 
 		base.POST("/users", handler.CreateUser)
 		base.POST("/tokens", handler.CreateToken)
+		base.POST("/refresh", handler.RefreshToken)
 	}
 
 	log.Println("Starting server on :8080")
