@@ -29,7 +29,7 @@ import (
 // @BasePath /
 func main() {
 	route := gin.Default()
-	toker := jwt.NewToker([]byte("secret"))
+	toker := jwt.NewToker([]byte("public-key"), []byte("private-key"))
 	repo := fake.NewRepository()
 	service := flow.NewService(toker, repo)
 	handler := NewHandler(service)

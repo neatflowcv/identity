@@ -13,8 +13,9 @@ import (
 func TestJWTToker_CreateToken(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+	publicKey := []byte("test-public-key")
+	privateKey := []byte("test-private-key")
+	toker := jwt.NewToker(publicKey, privateKey)
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
 	now := time.Unix(0, 0)
@@ -39,8 +40,9 @@ func TestJWTToker_ParseToken(t *testing.T) {
 		t.Run("access token", func(t *testing.T) {
 			t.Parallel()
 
-			secretKey := []byte("test-secret-key")
-			toker := jwt.NewToker(secretKey)
+			publicKey := []byte("test-public-key")
+			privateKey := []byte("test-private-key")
+			toker := jwt.NewToker(publicKey, privateKey)
 			user := domain.NewUser("testuser", "password123")
 			policy := domain.NewTokenPolicy()
 			now := time.Unix(0, 0)
@@ -56,8 +58,9 @@ func TestJWTToker_ParseToken(t *testing.T) {
 		t.Run("refresh token", func(t *testing.T) {
 			t.Parallel()
 
-			secretKey := []byte("test-secret-key")
-			toker := jwt.NewToker(secretKey)
+			publicKey := []byte("test-public-key")
+			privateKey := []byte("test-private-key")
+			toker := jwt.NewToker(publicKey, privateKey)
 			user := domain.NewUser("testuser", "password123")
 			policy := domain.NewTokenPolicy()
 			now := time.Unix(0, 0)
@@ -73,8 +76,9 @@ func TestJWTToker_ParseToken(t *testing.T) {
 		t.Run("both tokens", func(t *testing.T) {
 			t.Parallel()
 
-			secretKey := []byte("test-secret-key")
-			toker := jwt.NewToker(secretKey)
+			publicKey := []byte("test-public-key")
+			privateKey := []byte("test-private-key")
+			toker := jwt.NewToker(publicKey, privateKey)
 			user := domain.NewUser("testuser", "password123")
 			policy := domain.NewTokenPolicy()
 			now := time.Unix(0, 0)
@@ -92,8 +96,9 @@ func TestJWTToker_ParseToken(t *testing.T) {
 func TestJWTToker_ParseToken_InvalidToken(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+	publicKey := []byte("test-public-key")
+	privateKey := []byte("test-private-key")
+	toker := jwt.NewToker(publicKey, privateKey)
 	spec := domain.NewTokenSpec("invalid-token", "invalid-refresh-token")
 	now := time.Unix(0, 0)
 
@@ -105,8 +110,9 @@ func TestJWTToker_ParseToken_InvalidToken(t *testing.T) {
 func TestJWTToker_ParseToken_EmptyTokens(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+	publicKey := []byte("test-public-key")
+	privateKey := []byte("test-private-key")
+	toker := jwt.NewToker(publicKey, privateKey)
 	spec := domain.NewTokenSpec("", "")
 	now := time.Unix(0, 0)
 
@@ -119,14 +125,16 @@ func TestJWTToker_ParseToken_DifferentSecretKey(t *testing.T) {
 	t.Parallel()
 
 	// Create token with one secret key
-	secretKey1 := []byte("secret-key-1")
-	toker1 := jwt.NewToker(secretKey1)
+	publicKey1 := []byte("test-public-key-1")
+	privateKey1 := []byte("test-private-key-1")
+	toker1 := jwt.NewToker(publicKey1, privateKey1)
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
 	now := time.Unix(0, 0)
 	token := toker1.CreateToken(now, user, policy)
-	secretKey2 := []byte("secret-key-2")
-	toker2 := jwt.NewToker(secretKey2)
+	publicKey2 := []byte("test-public-key-2")
+	privateKey2 := []byte("test-private-key-2")
+	toker2 := jwt.NewToker(publicKey2, privateKey2)
 	spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
 
 	_, err := toker2.ParseToken(now, spec)
@@ -137,8 +145,9 @@ func TestJWTToker_ParseToken_DifferentSecretKey(t *testing.T) {
 func TestJWTToker_ParseToken_ExpiredRefreshToken(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+	publicKey := []byte("test-public-key")
+	privateKey := []byte("test-private-key")
+	toker := jwt.NewToker(publicKey, privateKey)
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
 	now := time.Unix(0, 0)
@@ -153,8 +162,9 @@ func TestJWTToker_ParseToken_ExpiredRefreshToken(t *testing.T) {
 func TestJWTToker_ParseToken_InvalidMethod(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+	publicKey := []byte("test-public-key")
+	privateKey := []byte("test-private-key")
+	toker := jwt.NewToker(publicKey, privateKey)
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
 	now := time.Unix(0, 0)
