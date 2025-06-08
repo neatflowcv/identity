@@ -6,6 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/neatflowcv/identity/docs"
+	"github.com/neatflowcv/identity/internal/app/flow"
+	"github.com/neatflowcv/identity/internal/pkg/repository/fake"
+	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -26,7 +29,10 @@ import (
 // @BasePath /
 func main() {
 	route := gin.Default()
-	handler := NewHandler()
+	toker := jwt.NewToker([]byte("secret"))
+	repo := fake.NewRepository()
+	service := flow.NewService(toker, repo)
+	handler := NewHandler(service)
 
 	base := route.Group("/identity/v1")
 	{
@@ -36,6 +42,8 @@ func main() {
 		})
 
 		base.POST("/users", handler.CreateUser)
+		base.POST("/tokens", handler.CreateToken)
+		base.POST("/refresh", handler.RefreshToken)
 	}
 
 	log.Println("Starting server on :8080")

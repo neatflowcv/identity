@@ -17,3 +17,13 @@ update:
 docs:
 	go install github.com/swaggo/swag/cmd/swag@latest
 	swag init -g cmd/identity/main.go
+
+.PHONY: test
+test:
+	go test -race -shuffle=on ./...
+
+.PHONY: cover
+cover:
+	go test ./... --coverpkg ./... -coverprofile=c.out
+	go tool cover -html="c.out"
+	rm c.out
