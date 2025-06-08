@@ -29,7 +29,7 @@ func NewService(toker coretoker.Toker, repository corerepository.Repository) *Se
 func (s *Service) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
 	dUser, err := s.repository.CreateUser(ctx, user)
 	if err != nil {
-		return nil, ErrUserExists
+		return nil, mappingError(err, corerepository.ErrUserExists, ErrUserExists)
 	}
 
 	return dUser, nil

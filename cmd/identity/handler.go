@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,8 @@ func NewHandler(service *flow.Service) *Handler {
 // @Param user body model.CreateUserRequest true "User creation request"
 // @Success 204 "User created successfully"
 // @Failure 400 {object} model.ErrorResponse "Bad request"
+// @Failure 409 {object} model.ErrorResponse "User already exists"
+// @Failure 500 {object} model.ErrorResponse "Internal server error"
 // @Router /identity/v1/users [post]
 func (h *Handler) CreateUser(ctx *gin.Context) {
 	var req model.CreateUserRequest
@@ -45,9 +48,18 @@ func (h *Handler) CreateUser(ctx *gin.Context) {
 
 	_, err = h.service.CreateUser(ctx, user)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Error: err.Error(),
-		})
+		switch {
+		case errors.Is(err, flow.ErrUserExists):
+			ctx.JSON(http.StatusConflict, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		case errors.Is(err, flow.ErrUnknown):
+			ctx.JSON(http.StatusInternalServerError, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		default:
+			panic(err)
+		}
 
 		return
 	}
@@ -65,6 +77,7 @@ func (h *Handler) CreateUser(ctx *gin.Context) {
 // @Success 200 {object} model.CreateTokenResponse "Token created successfully"
 // @Failure 400 {object} model.ErrorResponse "Bad request"
 // @Failure 401 {object} model.ErrorResponse "Unauthorized"
+// @Failure 500 {object} model.ErrorResponse "Internal server error"
 // @Router /identity/v1/tokens [post]
 func (h *Handler) CreateToken(ctx *gin.Context) { //nolint:dupl
 	var req model.CreateTokenRequest
@@ -82,9 +95,22 @@ func (h *Handler) CreateToken(ctx *gin.Context) { //nolint:dupl
 
 	token, err := h.service.CreateToken(ctx, user)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Error: err.Error(),
-		})
+		switch {
+		case errors.Is(err, flow.ErrUserNotFound):
+			ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		case errors.Is(err, flow.ErrAuthenticationFailed):
+			ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		case errors.Is(err, flow.ErrUnknown):
+			ctx.JSON(http.StatusInternalServerError, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		default:
+			panic(err)
+		}
 
 		return
 	}
@@ -109,6 +135,7 @@ func (h *Handler) CreateToken(ctx *gin.Context) { //nolint:dupl
 // @Success 200 {object} model.RefreshTokenResponse "Token refreshed successfully"
 // @Failure 400 {object} model.ErrorResponse "Bad request"
 // @Failure 401 {object} model.ErrorResponse "Unauthorized"
+// @Failure 500 {object} model.ErrorResponse "Internal server error"
 // @Router /identity/v1/refresh [post]
 func (h *Handler) RefreshToken(ctx *gin.Context) { //nolint:dupl
 	var req model.RefreshTokenRequest
@@ -126,9 +153,22 @@ func (h *Handler) RefreshToken(ctx *gin.Context) { //nolint:dupl
 
 	token, err := h.service.RefreshToken(ctx, spec)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
-			Error: err.Error(),
-		})
+		switch {
+		case errors.Is(err, flow.ErrInvalidToken):
+			ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		case errors.Is(err, flow.ErrUserNotFound):
+			ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		case errors.Is(err, flow.ErrUnknown):
+			ctx.JSON(http.StatusInternalServerError, model.ErrorResponse{
+				Error: err.Error(),
+			})
+		default:
+			panic(err)
+		}
 
 		return
 	}
