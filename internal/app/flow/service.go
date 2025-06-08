@@ -22,6 +22,10 @@ func NewService(toker coretoker.Toker, repository corerepository.Repository) *Se
 	}
 }
 
+// CreateUser creates a new user in the system
+// Returns:
+//   - ErrUserExists: when a user with the same username already exists
+//   - ErrUnknown: for any other unexpected errors
 func (s *Service) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
 	dUser, err := s.repository.CreateUser(ctx, user)
 	if err != nil {
@@ -31,6 +35,11 @@ func (s *Service) CreateUser(ctx context.Context, user *domain.User) (*domain.Us
 	return dUser, nil
 }
 
+// CreateToken creates an authentication token for a user
+// Returns:
+//   - ErrUserNotFound: when the specified user does not exist
+//   - ErrAuthenticationFailed: when the provided password is incorrect
+//   - ErrUnknown: for any other unexpected errors
 func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.Token, error) {
 	now := time.Now()
 
@@ -49,6 +58,11 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 	return token, nil
 }
 
+// RefreshToken refreshes an existing authentication token
+// Returns:
+//   - ErrInvalidToken: when the provided token is invalid or expired
+//   - ErrUserNotFound: when the user associated with the token does not exist
+//   - ErrUnknown: for any other unexpected errors
 func (s *Service) RefreshToken(ctx context.Context, spec *domain.TokenSpec) (*domain.Token, error) {
 	now := time.Now()
 
