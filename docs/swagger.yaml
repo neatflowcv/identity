@@ -1,6 +1,6 @@
 basePath: /
 definitions:
-  main.CreateUserBody:
+  model.CreateUserBody:
     properties:
       password:
         type: string
@@ -10,14 +10,14 @@ definitions:
     - password
     - username
     type: object
-  main.CreateUserRequest:
+  model.CreateUserRequest:
     properties:
       user:
-        $ref: '#/definitions/main.CreateUserBody'
+        $ref: '#/definitions/model.CreateUserBody'
     required:
     - user
     type: object
-  main.ErrorResponse:
+  model.ErrorResponse:
     properties:
       error:
         type: string
@@ -30,8 +30,8 @@ info:
     url: http://www.swagger.io/support
   description: This is an identity management API server.
   license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
+    name: Proprietary
+    url: All Rights Reserved
   termsOfService: http://swagger.io/terms/
   title: Identity API
   version: "1.0"
@@ -47,7 +47,7 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/main.CreateUserRequest'
+          $ref: '#/definitions/model.CreateUserRequest'
       produces:
       - application/json
       responses:
@@ -56,7 +56,7 @@ paths:
         "400":
           description: Bad request
           schema:
-            $ref: '#/definitions/main.ErrorResponse'
+            $ref: '#/definitions/model.ErrorResponse'
       summary: Create a new user
       tags:
       - users

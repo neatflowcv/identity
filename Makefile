@@ -1,6 +1,6 @@
 .PHONY: run
 run:
-	go run cmd/identity/main.go cmd/identity/handler.go
+	go run cmd/identity/*.go
 
 .PHONY: lint
 lint:
