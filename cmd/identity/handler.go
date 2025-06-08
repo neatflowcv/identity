@@ -99,4 +99,46 @@ func (h *Handler) CreateToken(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
+// RefreshToken godoc
+// @Summary Refresh an authentication token
+// @Description Refresh an existing token using the refresh token to get a new access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param token body model.RefreshTokenRequest true "Token refresh request"
+// @Success 200 {object} model.CreateTokenResponse "Token refreshed successfully"
+// @Failure 400 {object} model.ErrorResponse "Bad request"
+// @Failure 401 {object} model.ErrorResponse "Unauthorized"
 // @Router /identity/v1/refresh [post]
+func (h *Handler) RefreshToken(ctx *gin.Context) {
+	var req model.RefreshTokenRequest
+
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, model.ErrorResponse{
+			Error: err.Error(),
+		})
+
+		return
+	}
+
+	spec := domain.NewTokenSpec(req.Token.AccessToken, req.Token.RefreshToken)
+
+	token, err := h.service.RefreshToken(ctx, spec)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, model.ErrorResponse{
+			Error: err.Error(),
+		})
+
+		return
+	}
+
+	response := model.CreateTokenResponse{
+		TokenType:    string(token.TokenType()),
+		AccessToken:  token.AccessToken(),
+		RefreshToken: token.RefreshToken(),
+		ExpiresIn:    int64(token.ExpiresIn().Seconds()),
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}

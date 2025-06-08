@@ -1,5 +1,33 @@
 basePath: /
 definitions:
+  model.CreateTokenBody:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  model.CreateTokenRequest:
+    properties:
+      user:
+        $ref: '#/definitions/model.CreateTokenBody'
+    required:
+    - user
+    type: object
+  model.CreateTokenResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+    type: object
   model.CreateUserBody:
     properties:
       password:
@@ -22,6 +50,23 @@ definitions:
       error:
         type: string
     type: object
+  model.RefreshTokenBody:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    required:
+    - access_token
+    - refresh_token
+    type: object
+  model.RefreshTokenRequest:
+    properties:
+      token:
+        $ref: '#/definitions/model.RefreshTokenBody'
+    required:
+    - token
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -36,6 +81,67 @@ info:
   title: Identity API
   version: "1.0"
 paths:
+  /identity/v1/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh an existing token using the refresh token to get a new
+        access token
+      parameters:
+      - description: Token refresh request
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/model.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token refreshed successfully
+          schema:
+            $ref: '#/definitions/model.CreateTokenResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Refresh an authentication token
+      tags:
+      - auth
+  /identity/v1/tokens:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with username and password and return a token
+      parameters:
+      - description: Token creation request
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token created successfully
+          schema:
+            $ref: '#/definitions/model.CreateTokenResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Create a new authentication token
+      tags:
+      - auth
   /identity/v1/users:
     post:
       consumes:
