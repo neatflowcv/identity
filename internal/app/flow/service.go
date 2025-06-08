@@ -3,6 +3,7 @@ package flow
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/neatflowcv/identity/internal/pkg/domain"
 	corerepository "github.com/neatflowcv/identity/internal/pkg/repository/core"
@@ -31,9 +32,11 @@ func (s *Service) CreateUser(ctx context.Context, user *domain.User) (*domain.Us
 }
 
 func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.Token, error) {
+	now := time.Now()
+
 	dUser, err := s.repository.GetUser(ctx, user.Username())
 	if err != nil {
-		return nil, mappingError(err, ErrUserNotFound)
+		return nil, mappingError(err, corerepository.ErrUserNotFound, ErrUserNotFound)
 	}
 
 	if !dUser.EqualPassword(user) {
@@ -41,39 +44,36 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 	}
 
 	policy := domain.NewTokenPolicy()
-	token := s.toker.CreateToken(dUser, policy)
+	token := s.toker.CreateToken(now, dUser, policy)
 
 	return token, nil
 }
 
 func (s *Service) RefreshToken(ctx context.Context, spec *domain.TokenSpec) (*domain.Token, error) {
-	username, err := s.toker.ParseToken(spec)
+	now := time.Now()
+
+	username, err := s.toker.ParseToken(now, spec)
 	if err != nil {
-		return nil, mappingError(err, ErrInvalidToken)
+		return nil, mappingError(err, coretoker.ErrInvalidToken, ErrInvalidToken)
 	}
 
 	dUser, err := s.repository.GetUser(ctx, string(username))
 	if err != nil {
-		switch {
-		case errors.Is(err, corerepository.ErrUserNotFound):
-			return nil, ErrUserNotFound
-		default:
-			return nil, errors.Join(ErrUnknown, err)
-		}
+		return nil, mappingError(err, corerepository.ErrUserNotFound, ErrUserNotFound)
 	}
 
 	policy := domain.NewTokenPolicy()
 
-	token := s.toker.CreateToken(dUser, policy)
+	token := s.toker.CreateToken(now, dUser, policy)
 
 	return token, nil
 }
 
-func mappingError(from error, to error) error {
+func mappingError(err error, from error, to error) error {
 	switch {
-	case errors.Is(from, to):
+	case errors.Is(err, from):
 		return to
 	default:
-		return errors.Join(from, to)
+		return errors.Join(ErrUnknown, err)
 	}
 }

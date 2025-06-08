@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -23,8 +22,7 @@ func NewToker(secretKey []byte) *Toker {
 	}
 }
 
-func (t *Toker) CreateToken(user *domain.User, policy *domain.TokenPolicy) *domain.Token {
-	now := time.Now()
+func (t *Toker) CreateToken(now time.Time, user *domain.User, policy *domain.TokenPolicy) *domain.Token {
 	accessTokenString := t.createTokenString(user, now, now.Add(policy.AccessTokenTTL()))
 	refreshTokenString := t.createTokenString(user, now, now.Add(policy.RefreshTokenTTL()))
 	payload := domain.NewPayload(user.Username())
@@ -39,15 +37,15 @@ func (t *Toker) CreateToken(user *domain.User, policy *domain.TokenPolicy) *doma
 	return token
 }
 
-func (t *Toker) ParseToken(spec *domain.TokenSpec) (domain.Username, error) {
-	refreshTokenClaims, err := t.parseTokenString(spec.RefreshToken())
+func (t *Toker) ParseToken(now time.Time, spec *domain.TokenSpec) (domain.Username, error) {
+	refreshTokenClaims, err := t.parseTokenString(now, spec.RefreshToken())
 	if err == nil {
 		return domain.Username(refreshTokenClaims.Username), nil
 	}
 
 	totalErr := err
 
-	accessTokenClaims, err := t.parseTokenString(spec.AccessToken())
+	accessTokenClaims, err := t.parseTokenString(now, spec.AccessToken())
 	if err == nil {
 		return domain.Username(accessTokenClaims.Username), nil
 	}
@@ -69,28 +67,34 @@ func (t *Toker) createTokenString(user *domain.User, issuedAt time.Time, expires
 	return accessTokenString
 }
 
-func (t *Toker) parseTokenString(tokenString string) (*jwtClaims, error) {
-	var tmpClaims jwtClaims
+var (
+	ErrInvalidMethod = errors.New("unexpected signing method")
+)
 
-	token, err := jwt.ParseWithClaims(tokenString, &tmpClaims, func(token *jwt.Token) (interface{}, error) {
+func (t *Toker) parseTokenString(now time.Time, tokenString string) (*jwtClaims, error) {
+	var claims jwtClaims
+
+	_, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %w", core.ErrInvalidToken)
+			return nil, ErrInvalidMethod
 		}
 
 		return t.secretKey, nil
-	})
+	}, jwt.WithTimeFunc(func() time.Time { return now }))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse refresh token: %w", core.ErrInvalidToken)
+		switch {
+		case errors.Is(err, jwt.ErrTokenMalformed):
+			return nil, core.ErrInvalidToken
+		case errors.Is(err, jwt.ErrTokenSignatureInvalid):
+			return nil, core.ErrInvalidToken
+		case errors.Is(err, jwt.ErrTokenExpired):
+			return nil, core.ErrInvalidToken
+		case errors.Is(err, ErrInvalidMethod):
+			return nil, core.ErrInvalidToken
+		default:
+			panic(err)
+		}
 	}
 
-	claims, ok := token.Claims.(*jwtClaims)
-	if !ok || !token.Valid {
-		return nil, core.ErrInvalidToken
-	}
-
-	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
-		return nil, core.ErrInvalidToken
-	}
-
-	return claims, nil
+	return &claims, nil
 }

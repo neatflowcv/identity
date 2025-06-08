@@ -2,8 +2,10 @@ package jwt_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/neatflowcv/identity/internal/pkg/domain"
+	"github.com/neatflowcv/identity/internal/pkg/toker/core"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	"github.com/stretchr/testify/require"
 )
@@ -15,8 +17,9 @@ func TestJWTToker_CreateToken(t *testing.T) {
 	toker := jwt.NewToker(secretKey)
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
+	now := time.Unix(0, 0)
 
-	token := toker.CreateToken(user, policy)
+	token := toker.CreateToken(now, user, policy)
 
 	require.NotNil(t, token)
 	require.NotEmpty(t, token.AccessToken())
@@ -27,54 +30,63 @@ func TestJWTToker_CreateToken(t *testing.T) {
 	require.Positive(t, token.ExpiresIn())
 }
 
-func TestJWTToker_ParseToken_WithAccessToken(t *testing.T) {
+func TestJWTToker_ParseToken(t *testing.T) {
 	t.Parallel()
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
-	user := domain.NewUser("testuser", "password123")
-	policy := domain.NewTokenPolicy()
-	token := toker.CreateToken(user, policy)
-	spec := domain.NewTokenSpec(token.AccessToken(), "")
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 
-	username, err := toker.ParseToken(spec)
+		t.Run("access token", func(t *testing.T) {
+			t.Parallel()
 
-	require.NoError(t, err)
-	require.Equal(t, "testuser", string(username))
-}
+			secretKey := []byte("test-secret-key")
+			toker := jwt.NewToker(secretKey)
+			user := domain.NewUser("testuser", "password123")
+			policy := domain.NewTokenPolicy()
+			now := time.Unix(0, 0)
+			token := toker.CreateToken(now, user, policy)
+			spec := domain.NewTokenSpec(token.AccessToken(), "")
 
-func TestJWTToker_ParseToken_WithRefreshToken(t *testing.T) {
-	t.Parallel()
+			username, err := toker.ParseToken(now, spec)
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+			require.NoError(t, err)
+			require.Equal(t, "testuser", string(username))
+		})
 
-	user := domain.NewUser("testuser", "password123")
-	policy := domain.NewTokenPolicy()
+		t.Run("refresh token", func(t *testing.T) {
+			t.Parallel()
 
-	token := toker.CreateToken(user, policy)
+			secretKey := []byte("test-secret-key")
+			toker := jwt.NewToker(secretKey)
+			user := domain.NewUser("testuser", "password123")
+			policy := domain.NewTokenPolicy()
+			now := time.Unix(0, 0)
+			token := toker.CreateToken(now, user, policy)
+			spec := domain.NewTokenSpec("", token.RefreshToken())
 
-	spec := domain.NewTokenSpec("", token.RefreshToken())
-	username, err := toker.ParseToken(spec)
-	require.NoError(t, err)
-	require.Equal(t, "testuser", string(username))
-}
+			username, err := toker.ParseToken(now, spec)
 
-func TestJWTToker_ParseToken_WithBothTokens(t *testing.T) {
-	t.Parallel()
+			require.NoError(t, err)
+			require.Equal(t, "testuser", string(username))
+		})
 
-	secretKey := []byte("test-secret-key")
-	toker := jwt.NewToker(secretKey)
+		t.Run("both tokens", func(t *testing.T) {
+			t.Parallel()
 
-	user := domain.NewUser("testuser", "password123")
-	policy := domain.NewTokenPolicy()
+			secretKey := []byte("test-secret-key")
+			toker := jwt.NewToker(secretKey)
+			user := domain.NewUser("testuser", "password123")
+			policy := domain.NewTokenPolicy()
+			now := time.Unix(0, 0)
+			token := toker.CreateToken(now, user, policy)
+			spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
 
-	token := toker.CreateToken(user, policy)
+			username, err := toker.ParseToken(now, spec)
 
-	spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
-	username, err := toker.ParseToken(spec)
-	require.NoError(t, err)
-	require.Equal(t, "testuser", string(username))
+			require.NoError(t, err)
+			require.Equal(t, "testuser", string(username))
+		})
+	})
 }
 
 func TestJWTToker_ParseToken_InvalidToken(t *testing.T) {
@@ -82,10 +94,12 @@ func TestJWTToker_ParseToken_InvalidToken(t *testing.T) {
 
 	secretKey := []byte("test-secret-key")
 	toker := jwt.NewToker(secretKey)
-
 	spec := domain.NewTokenSpec("invalid-token", "invalid-refresh-token")
-	_, err := toker.ParseToken(spec)
-	require.Error(t, err)
+	now := time.Unix(0, 0)
+
+	_, err := toker.ParseToken(now, spec)
+
+	require.ErrorIs(t, err, core.ErrInvalidToken)
 }
 
 func TestJWTToker_ParseToken_EmptyTokens(t *testing.T) {
@@ -93,10 +107,12 @@ func TestJWTToker_ParseToken_EmptyTokens(t *testing.T) {
 
 	secretKey := []byte("test-secret-key")
 	toker := jwt.NewToker(secretKey)
-
 	spec := domain.NewTokenSpec("", "")
-	_, err := toker.ParseToken(spec)
-	require.Error(t, err)
+	now := time.Unix(0, 0)
+
+	_, err := toker.ParseToken(now, spec)
+
+	require.ErrorIs(t, err, core.ErrInvalidToken)
 }
 
 func TestJWTToker_ParseToken_DifferentSecretKey(t *testing.T) {
@@ -105,49 +121,48 @@ func TestJWTToker_ParseToken_DifferentSecretKey(t *testing.T) {
 	// Create token with one secret key
 	secretKey1 := []byte("secret-key-1")
 	toker1 := jwt.NewToker(secretKey1)
-
 	user := domain.NewUser("testuser", "password123")
 	policy := domain.NewTokenPolicy()
-
-	token := toker1.CreateToken(user, policy)
-
+	now := time.Unix(0, 0)
+	token := toker1.CreateToken(now, user, policy)
 	secretKey2 := []byte("secret-key-2")
 	toker2 := jwt.NewToker(secretKey2)
-
 	spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
-	_, err := toker2.ParseToken(spec)
-	require.Error(t, err)
+
+	_, err := toker2.ParseToken(now, spec)
+
+	require.ErrorIs(t, err, core.ErrInvalidToken)
 }
 
-func TestJWTToker_TokenRoundTrip(t *testing.T) {
+func TestJWTToker_ParseToken_ExpiredRefreshToken(t *testing.T) {
 	t.Parallel()
 
 	secretKey := []byte("test-secret-key")
 	toker := jwt.NewToker(secretKey)
+	user := domain.NewUser("testuser", "password123")
+	policy := domain.NewTokenPolicy()
+	now := time.Unix(0, 0)
+	token := toker.CreateToken(now, user, policy)
+	spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
 
-	testCases := []struct {
-		name     string
-		username string
-		password string
-	}{
-		{"basic user", "user1", "pass1"},
-		{"user with special chars", "user@domain.com", "p@ssw0rd!"},
-		{"user with spaces", "user name", "password with spaces"},
-	}
+	_, err := toker.ParseToken(now.Add(policy.RefreshTokenTTL()), spec)
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	require.ErrorIs(t, err, core.ErrInvalidToken)
+}
 
-			user := domain.NewUser(tc.username, tc.password)
-			policy := domain.NewTokenPolicy()
+func TestJWTToker_ParseToken_InvalidMethod(t *testing.T) {
+	t.Parallel()
 
-			token := toker.CreateToken(user, policy)
+	secretKey := []byte("test-secret-key")
+	toker := jwt.NewToker(secretKey)
+	user := domain.NewUser("testuser", "password123")
+	policy := domain.NewTokenPolicy()
+	now := time.Unix(0, 0)
+	token := toker.CreateToken(now, user, policy)
+	// RSA token generated by https://jwt.io/
+	spec := domain.NewTokenSpec(`eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.NHVaYe26MbtOYhSKkoKYdFVomg4i8ZJd8_-RU8VNbftc4TSMb4bXP3l3YlNWACwyXPGffz5aXHc6lty1Y2t4SWRqGteragsVdZufDn5BlnJl9pdR_kdVFUsra2rWKEofkZeIC4yWytE58sMIihvo9H1ScmmVwBcQP6XETqYd0aSHp1gOa9RdUPDvoXQ5oqygTqVtxaDr6wUFKrKItgBMzWIdNZ6y7O9E0DhEPTbE9rfBo6KTFsHAZnMg4k68CDp2woYIaXbmYTWcvbzIuHO7_37GT79XdIwkm95QJ7hYC9RiwrV7mesbY4PAahERJawntho0my942XheVLmGwLMBkQ`, token.RefreshToken()) //nolint:lll
 
-			spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
-			username, err := toker.ParseToken(spec)
-			require.NoError(t, err)
-			require.Equal(t, tc.username, string(username))
-		})
-	}
+	_, err := toker.ParseToken(now.Add(policy.RefreshTokenTTL()), spec)
+
+	require.ErrorIs(t, err, core.ErrInvalidToken)
 }
