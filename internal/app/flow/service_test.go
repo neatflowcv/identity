@@ -50,7 +50,7 @@ func TestCreateToken(t *testing.T) {
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
 		_, _ = repo.CreateUser(t.Context(), user)
-		toker := jwt.NewToker([]byte("test-secret-key"))
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
 
 		service := flow.NewService(toker, repo)
 		ctx := t.Context()
@@ -100,7 +100,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
 		_, _ = repo.CreateUser(t.Context(), user)
-		toker := jwt.NewToker([]byte("test-secret-key"))
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
 		service := flow.NewService(toker, repo)
 		ctx := t.Context()
 		initialToken, _ := service.CreateToken(ctx, user)
@@ -120,7 +120,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 	t.Run("invalid token", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(jwt.NewToker([]byte("test-secret-key")), fake.NewRepository())
+		service := flow.NewService(jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")), fake.NewRepository())
 		ctx := t.Context()
 		spec := domain.NewTokenSpec("invalid-access-token", "invalid-refresh-token")
 
@@ -135,7 +135,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
 		_, _ = repo.CreateUser(t.Context(), user)
-		toker := jwt.NewToker([]byte("test-secret-key"))
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
 		service := flow.NewService(toker, repo)
 		ctx := t.Context()
 		token, _ := service.CreateToken(ctx, user)
@@ -151,7 +151,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 	t.Run("empty token spec", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(jwt.NewToker([]byte("test-secret-key")), fake.NewRepository())
+		service := flow.NewService(jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")), fake.NewRepository())
 		ctx := t.Context()
 		spec := domain.NewTokenSpec("", "")
 
@@ -166,7 +166,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
 		_, _ = repo.CreateUser(t.Context(), user)
-		toker := jwt.NewToker([]byte("test-secret-key"))
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
 		service := flow.NewService(toker, repo)
 		ctx := t.Context()
 		expiredSpec := domain.NewTokenSpec("expired.token.here", "expired.refresh.here")
