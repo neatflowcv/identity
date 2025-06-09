@@ -2,6 +2,8 @@ package orm
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/neatflowcv/identity/internal/pkg/domain"
@@ -26,9 +28,18 @@ type Repository struct {
 }
 
 func NewRepository(dsn string) (*Repository, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	var config gorm.Config
+
+	db, err := gorm.Open(postgres.Open(dsn), &config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	var user UserModel
+
+	err = db.AutoMigrate(&user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
 	return &Repository{db: db}, nil
@@ -46,7 +57,8 @@ func (r *Repository) CreateUser(ctx context.Context, user *domain.User) (*domain
 		if r.isDuplicateKeyError(err) {
 			return nil, core.ErrUserExists
 		}
-		return nil, err
+
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return user, nil
@@ -55,12 +67,13 @@ func (r *Repository) CreateUser(ctx context.Context, user *domain.User) (*domain
 func (r *Repository) GetUser(ctx context.Context, username string) (*domain.User, error) {
 	var model UserModel
 
-	err := r.db.WithContext(ctx).First(&model, UserModel{Username: username}).Error
+	err := r.db.WithContext(ctx).First(&model, UserModel{Username: username}).Error //nolint:exhaustruct
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, core.ErrUserNotFound
 		}
-		return nil, err
+
+		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	user := domain.NewUser(model.Username, model.Password)

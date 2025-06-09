@@ -12,5 +12,4 @@ linters:
       - docs/
   settings:
     varnamelen:
-      ignore-names:
-        - tc
+      min-name-length: 2
