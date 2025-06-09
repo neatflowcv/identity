@@ -18,6 +18,10 @@ func (u *User) Username() string {
 	return string(u.username)
 }
 
+func (u *User) Password() string {
+	return u.password
+}
+
 func (u *User) EqualPassword(other *User) bool {
 	return u.password == other.password
 }

@@ -1,0 +1,75 @@
+---
+description: 
+globs: *.go
+alwaysApply: false
+---
+# Go 에러 처리 스타일 가이드
+
+## 에러 처리 패턴
+
+Go에서 에러를 처리할 때는 다음과 같은 패턴을 사용해야 합니다:
+
+```go
+// 올바른 에러 처리 패턴
+err := someFunction()
+if err != nil {
+    // 에러 처리
+    return nil, err
+}
+
+// 잘못된 에러 처리 패턴 (사용하지 말 것)
+if err := someFunction(); err != nil {
+    // 에러 처리
+    return nil, err
+}
+```
+
+## 규칙 설명
+
+1. 에러 변수는 항상 별도로 선언하고 할당해야 합니다.
+2. 에러 체크는 반드시 별도의 if 문으로 분리해야 합니다.
+3. 에러 처리 로직은 들여쓰기를 통해 명확하게 구분해야 합니다.
+
+## 예시
+
+```go
+// 올바른 예시들:
+
+// 1. 함수 호출
+err := db.Query()
+if err != nil {
+    return err
+}
+
+// 2. 파일 작업
+file, err := os.Open("file.txt")
+if err != nil {
+    return err
+}
+
+// 3. JSON 처리
+err = json.Unmarshal(data, &result)
+if err != nil {
+    return err
+}
+
+// 잘못된 예시들 (사용하지 말 것):
+
+// 1. if 문 내에서 에러 선언
+if err := db.Query(); err != nil {
+    return err
+}
+
+// 2. if 문 내에서 에러 선언
+if file, err := os.Open("file.txt"); err != nil {
+    return err
+}
+```
+
+## 이유
+
+1. 가독성: 에러 처리 로직이 명확하게 구분되어 코드의 가독성이 향상됩니다.
+2. 일관성: 팀 전체가 동일한 에러 처리 패턴을 사용함으로써 코드의 일관성이 유지됩니다.
+3. 유지보수성: 에러 처리 로직이 분리되어 있어 향후 수정이 용이합니다.
+4. 디버깅: 에러 처리 로직이 명확하게 구분되어 있어 디버깅이 쉬워집니다.
+5. 스코프: 에러 변수를 if 문 밖에서 선언함으로써 필요한 경우 에러 변수를 재사용할 수 있습니다.

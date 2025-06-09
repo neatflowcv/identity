@@ -3,11 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/neatflowcv/identity/docs"
 	"github.com/neatflowcv/identity/internal/app/flow"
-	"github.com/neatflowcv/identity/internal/pkg/repository/fake"
+	"github.com/neatflowcv/identity/internal/pkg/repository/orm"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -30,7 +31,24 @@ import (
 func main() {
 	route := gin.Default()
 	toker := jwt.NewToker([]byte("public-key"), []byte("private-key"))
-	repo := fake.NewRepository()
+
+	// 환경변수에서 DSN을 가져오거나 기본값 사용
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "host=localhost user=postgres password=postgres dbname=identity port=5432 sslmode=disable TimeZone=Asia/Seoul"
+	}
+
+	// 환경변수에서 PORT를 가져오거나 기본값 사용
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	repo, err := orm.NewRepository(dsn)
+	if err != nil {
+		log.Fatal("Failed to initialize repository:", err)
+	}
+
 	service := flow.NewService(toker, repo)
 	handler := NewHandler(service)
 
@@ -46,10 +64,10 @@ func main() {
 		base.POST("/refresh", handler.RefreshToken)
 	}
 
-	log.Println("Starting server on :8080")
-	log.Println("Swagger UI available at http://localhost:8080/identity/v1/docs")
+	log.Printf("Starting server on :%s", port)
+	log.Printf("Swagger UI available at http://localhost:%s/identity/v1/docs", port)
 
-	err := route.Run(":8080")
+	err = route.Run(":" + port)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
