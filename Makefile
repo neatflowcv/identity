@@ -1,3 +1,7 @@
+.PHONY: build
+build:
+	CGO_ENABLED=0 GOOS=linux go build -o . ./cmd/...
+
 .PHONY: run
 run:
 	go run cmd/identity/*.go
