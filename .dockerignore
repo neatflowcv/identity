@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+README.md
+
+# GitHub
+.github
+
+# Development
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+*_test.go
+coverage.out
+
+# Documentation
+docs/
+
+# Deploy
+deploy/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Temporary
+tmp/
+temp/ 
