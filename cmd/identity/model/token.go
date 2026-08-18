@@ -1,12 +1,12 @@
 package model
 
 type CreateTokenRequest struct {
-	User CreateTokenBody `json:"user" binding:"required"`
+	User CreateTokenBody `json:"user"`
 }
 
 type CreateTokenBody struct {
-	UserName string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
 
 type CreateTokenResponse struct {
@@ -17,12 +17,12 @@ type CreateTokenResponse struct {
 }
 
 type RefreshTokenRequest struct {
-	Token RefreshTokenBody `json:"token" binding:"required"`
+	Token RefreshTokenBody `json:"token"`
 }
 
 type RefreshTokenBody struct {
-	AccessToken  string `json:"access_token" binding:"required"`
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type RefreshTokenResponse struct {

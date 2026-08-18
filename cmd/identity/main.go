@@ -5,33 +5,23 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
-	"github.com/gin-gonic/gin"
-	_ "github.com/neatflowcv/identity/docs"
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/neatflowcv/identity/internal/app/flow"
 	"github.com/neatflowcv/identity/internal/pkg/repository/orm"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title Identity API
-// @version 1.0
-// @description This is an identity management API server.
-// @termsOfService http://swagger.io/terms/
+const (
+	defaultPort       = 8080
+	apiVersion        = "1.0.0"
+	readHeaderTimeout = 5 * time.Second
+)
 
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Proprietary
-// @license.url All Rights Reserved
-
-// @host localhost:8080
-// @BasePath /
 func main() {
-	// 환경변수에서 PORT를 가져오거나 기본값 사용
-	port := 8080
+	port := defaultPort
 	portValue := os.Getenv("PORT")
 
 	if portValue != "" {
@@ -43,10 +33,8 @@ func main() {
 		port = parsedPort
 	}
 
-	route := gin.Default()
 	toker := jwt.NewToker([]byte("public-key"), []byte("private-key"))
 
-	// 환경변수에서 DSN을 가져오거나 기본값 사용
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "host=localhost user=postgres password=postgres dbname=identity port=5432 sslmode=disable TimeZone=Asia/Seoul"
@@ -58,25 +46,35 @@ func main() {
 	}
 
 	service := flow.NewService(toker, repo)
-	handler := NewHandler(service)
-
-	base := route.Group("/identity/v1")
-	{
-		base.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-		base.GET("/docs", func(c *gin.Context) {
-			c.Redirect(http.StatusMovedPermanently, "/identity/v1/swagger/index.html")
-		})
-
-		base.POST("/users", handler.CreateUser)
-		base.POST("/tokens", handler.CreateToken)
-		base.POST("/refresh", handler.RefreshToken)
-	}
+	router := NewRouter(service)
 
 	log.Printf("Starting server on :%d", port)
-	log.Printf("Swagger UI available at http://localhost:%d/identity/v1/docs", port)
+	log.Printf("OpenAPI JSON available at http://localhost:%d/identity/v1/openapi.json", port)
+	log.Printf("OpenAPI YAML available at http://localhost:%d/identity/v1/openapi.yaml", port)
+	log.Printf("API docs available at http://localhost:%d/identity/v1/docs", port)
 
-	err = route.Run(":" + strconv.Itoa(port))
+	server := &http.Server{ //nolint:exhaustruct
+		Addr:              ":" + strconv.Itoa(port),
+		Handler:           router,
+		ReadHeaderTimeout: readHeaderTimeout,
+	}
+
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+}
+
+func NewRouter(service *flow.Service) *http.ServeMux {
+	router := http.NewServeMux()
+	config := huma.DefaultConfig("Identity API", apiVersion)
+	config.OpenAPIPath = "/identity/v1/openapi"
+	config.DocsPath = "/identity/v1/docs"
+	config.SchemasPath = "/identity/v1/schemas"
+	config.Info.Description = "This is an identity management API server."
+
+	api := humago.New(router, config)
+	NewHandler(service).Register(api)
+
+	return router
 }

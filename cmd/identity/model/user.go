@@ -1,11 +1,10 @@
 package model
 
 type CreateUserRequest struct {
-	User CreateUserBody `json:"user" binding:"required"`
+	User CreateUserBody `json:"user"`
 }
 
 type CreateUserBody struct {
-	UserName string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
 }
-

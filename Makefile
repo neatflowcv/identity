@@ -17,11 +17,6 @@ update:
 	go mod tidy
 	go mod vendor
 
-.PHONY: docs
-docs:
-	go install github.com/swaggo/swag/cmd/swag@latest
-	swag init -g cmd/identity/main.go
-
 .PHONY: test
 test:
 	go test -race -shuffle=on ./...
