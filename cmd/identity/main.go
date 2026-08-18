@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/neatflowcv/identity/docs"
@@ -29,6 +30,19 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
+	// 환경변수에서 PORT를 가져오거나 기본값 사용
+	port := 8080
+	portValue := os.Getenv("PORT")
+
+	if portValue != "" {
+		parsedPort, err := strconv.Atoi(portValue)
+		if err != nil || parsedPort < 1 || parsedPort > 65535 {
+			log.Fatal("Invalid PORT: must be an integer between 1 and 65535")
+		}
+
+		port = parsedPort
+	}
+
 	route := gin.Default()
 	toker := jwt.NewToker([]byte("public-key"), []byte("private-key"))
 
@@ -36,12 +50,6 @@ func main() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "host=localhost user=postgres password=postgres dbname=identity port=5432 sslmode=disable TimeZone=Asia/Seoul"
-	}
-
-	// 환경변수에서 PORT를 가져오거나 기본값 사용
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
 	}
 
 	repo, err := orm.NewRepository(dsn)
@@ -64,10 +72,10 @@ func main() {
 		base.POST("/refresh", handler.RefreshToken)
 	}
 
-	log.Printf("Starting server on :%s", port)
-	log.Printf("Swagger UI available at http://localhost:%s/identity/v1/docs", port)
+	log.Printf("Starting server on :%d", port)
+	log.Printf("Swagger UI available at http://localhost:%d/identity/v1/docs", port)
 
-	err = route.Run(":" + port)
+	err = route.Run(":" + strconv.Itoa(port))
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
