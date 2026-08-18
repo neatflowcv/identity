@@ -8,8 +8,9 @@ import (
 )
 
 type jwtClaims struct {
-	Username string `json:"username"`
 	jwt.RegisteredClaims
+
+	Username string `json:"username"`
 }
 
 func newJWTClaims(user *domain.User, issuedAt time.Time, expiresAt time.Time) *jwtClaims {
