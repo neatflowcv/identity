@@ -7,6 +7,8 @@ linters:
     - tagalign
     - godot
     - tagliatelle
+    - gomodguard # deprecated
+    - wsl # deprecated
   exclusions:
     paths:
       - docs/
