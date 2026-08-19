@@ -4,10 +4,17 @@ import (
 	"testing"
 	"time"
 
+	jwtv5 "github.com/golang-jwt/jwt/v5"
 	"github.com/neatflowcv/identity/internal/pkg/domain"
 	"github.com/neatflowcv/identity/internal/pkg/toker/core"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	refreshTestUser   = "user"
+	refreshTestUse    = "refresh"
+	refreshTestFamily = "family-id"
 )
 
 func TestJWTToker_CreateToken(t *testing.T) {
@@ -178,4 +185,84 @@ func TestJWTToker_ParseToken_InvalidMethod(t *testing.T) {
 	_, err := toker.ParseToken(now.Add(policy.RefreshTokenTTL()), spec)
 
 	require.ErrorIs(t, err, core.ErrInvalidToken)
+}
+
+func TestJWTToker_ParseRefreshToken_ClaimsErrorsAreIndistinguishable(t *testing.T) {
+	t.Parallel()
+
+	toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
+	now := time.Now()
+	cases := []struct {
+		name   string
+		claims refreshTestClaims
+	}{
+		{
+			name: "not yet valid",
+			claims: refreshTestClaims{
+				RegisteredClaims: jwtv5.RegisteredClaims{ //nolint:exhaustruct
+					ExpiresAt: jwtv5.NewNumericDate(now.Add(time.Hour)),
+					IssuedAt:  jwtv5.NewNumericDate(now),
+					NotBefore: jwtv5.NewNumericDate(now.Add(time.Minute)),
+					ID:        "token-id",
+					Subject:   refreshTestUser,
+				},
+				Username: refreshTestUser,
+				TokenUse: refreshTestUse,
+				FamilyID: refreshTestFamily,
+			},
+		},
+		{
+			name: "used before issued",
+			claims: refreshTestClaims{
+				RegisteredClaims: jwtv5.RegisteredClaims{ //nolint:exhaustruct
+					ExpiresAt: jwtv5.NewNumericDate(now.Add(time.Hour)),
+					IssuedAt:  jwtv5.NewNumericDate(now.Add(time.Minute)),
+					ID:        "token-id",
+					Subject:   refreshTestUser,
+				},
+				Username: refreshTestUser,
+				TokenUse: refreshTestUse,
+				FamilyID: refreshTestFamily,
+			},
+		},
+		{
+			name: "invalid required claims",
+			claims: refreshTestClaims{
+				RegisteredClaims: jwtv5.RegisteredClaims{}, //nolint:exhaustruct
+				Username:         "",
+				TokenUse:         refreshTestUse,
+				FamilyID:         refreshTestFamily,
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			token := signRefreshTestClaims(t, []byte("test-private-key"), testCase.claims)
+			_, err := toker.ParseRefreshToken(now, domain.NewTokenSpec(token))
+
+			require.ErrorIs(t, err, core.ErrInvalidToken)
+			require.Equal(t, core.ErrInvalidToken.Error(), err.Error())
+		})
+	}
+}
+
+type refreshTestClaims struct {
+	jwtv5.RegisteredClaims
+
+	Username string `json:"username"`
+	TokenUse string `json:"token_use"`
+	FamilyID string `json:"family_id"`
+}
+
+func signRefreshTestClaims(t *testing.T, key []byte, claims refreshTestClaims) string {
+	t.Helper()
+
+	token := jwtv5.NewWithClaims(jwtv5.SigningMethodHS256, claims)
+	signed, err := token.SignedString(key)
+	require.NoError(t, err)
+
+	return signed
 }

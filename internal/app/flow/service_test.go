@@ -1,6 +1,7 @@
 package flow_test
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
@@ -97,6 +98,24 @@ func TestCreateToken(t *testing.T) {
 
 		require.ErrorIs(t, err, flow.ErrAuthenticationFailed)
 	})
+}
+
+func TestCreateToken_MissingUserVerifiesDummyPasswordHash(t *testing.T) {
+	t.Parallel()
+
+	hasher := &recordingHasher{encodedHash: "", verifyCalled: false}
+	service := flow.NewService(nil, fake.NewRepository(), hasher)
+
+	_, err := service.CreateToken(t.Context(), domain.NewUser("missing", "password"))
+
+	require.ErrorIs(t, err, flow.ErrUserNotFound)
+	require.True(t, hasher.verifyCalled)
+	require.True(t, strings.HasPrefix(hasher.encodedHash, "$argon2id$v=19$m=65536,t=3,p=4$"))
+
+	productionHasher := argon.NewDefaultArgon2id()
+	verified, verifyErr := productionHasher.Verify("password", hasher.encodedHash)
+	require.NoError(t, verifyErr)
+	require.False(t, verified)
 }
 
 func TestRefreshToken(t *testing.T) { //nolint:funlen
@@ -285,4 +304,20 @@ func testHasher(t *testing.T) *argon.Argon2id {
 	require.NoError(t, err)
 
 	return hasher
+}
+
+type recordingHasher struct {
+	encodedHash  string
+	verifyCalled bool
+}
+
+func (h *recordingHasher) Hash(string) (string, error) {
+	return "", nil
+}
+
+func (h *recordingHasher) Verify(_ string, encodedHash string) (bool, error) {
+	h.verifyCalled = true
+	h.encodedHash = encodedHash
+
+	return false, nil
 }

@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/neatflowcv/identity/internal/app/flow"
+	"github.com/neatflowcv/identity/internal/app/transport/httpapi"
 	"github.com/neatflowcv/identity/internal/pkg/config"
 	"github.com/neatflowcv/identity/internal/pkg/hasher/argon"
 	"github.com/neatflowcv/identity/internal/pkg/repository/orm"
@@ -17,7 +16,6 @@ import (
 )
 
 const (
-	apiVersion        = "1.0.0"
 	readHeaderTimeout = 5 * time.Second
 )
 
@@ -56,16 +54,6 @@ func main() {
 	}
 }
 
-func NewRouter(service *flow.Service) *http.ServeMux {
-	router := http.NewServeMux()
-	config := huma.DefaultConfig("Identity API", apiVersion)
-	config.OpenAPIPath = "/identity/v1/openapi"
-	config.DocsPath = "/identity/v1/docs"
-	config.SchemasPath = "/identity/v1/schemas"
-	config.Info.Description = "This is an identity management API server."
-
-	api := humago.New(router, config)
-	NewHandler(service).Register(api)
-
-	return router
+func NewRouter(service *flow.Service) http.Handler {
+	return httpapi.NewRouter(service)
 }

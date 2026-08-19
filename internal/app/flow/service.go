@@ -13,6 +13,12 @@ import (
 	coretoker "github.com/neatflowcv/identity/internal/pkg/toker/core"
 )
 
+// dummyPasswordHash keeps the missing-user login path on the same Argon2id
+// verification path as an existing user. Its parameters match the production
+// default, and its fixed salt/key contain no secret or user-specific data.
+const dummyPasswordHash = "$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$" +
+	"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
 type Service struct {
 	toker          coretoker.Toker
 	repository     corerepository.Repository
@@ -61,6 +67,12 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 
 	dUser, err := s.repository.GetUser(ctx, user.Username())
 	if err != nil {
+		if errors.Is(err, corerepository.ErrUserNotFound) {
+			// Match the real-user Argon2 verification cost to reduce account enumeration from timing differences.
+			// The result is discarded and is not used for authentication.
+			_, _ = s.passwordHasher.Verify(user.Password(), dummyPasswordHash)
+		}
+
 		return nil, mappingError(err, corerepository.ErrUserNotFound, ErrUserNotFound)
 	}
 

@@ -1,11 +1,13 @@
-package main
+package httpapi
 
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/neatflowcv/identity/cmd/identity/model"
 	"github.com/neatflowcv/identity/internal/app/flow"
 	"github.com/neatflowcv/identity/internal/pkg/domain"
@@ -13,11 +15,60 @@ import (
 
 type Handler struct {
 	service *flow.Service
+	logger  FailureLogger
+}
+
+const (
+	apiVersion                 = "1.0.0"
+	createUserConflictMessage  = "unable to create user"
+	internalFailureCategory    = "internal"
+	internalServerErrorMessage = "internal server error"
+	authenticationErrorMessage = "invalid username or password"
+	refreshTokenErrorMessage   = "invalid refresh token"
+)
+
+// FailureLogger records a non-sensitive error classification for an HTTP
+// operation. Implementations must not include request credentials or tokens.
+type FailureLogger interface {
+	LogFailure(operation string, category string)
+}
+
+type standardFailureLogger struct{}
+
+func (standardFailureLogger) LogFailure(operation string, category string) {
+	log.Printf("identity request failed: operation=%s category=%s", operation, category)
+}
+
+func NewRouter(service *flow.Service) http.Handler {
+	return NewRouterWithLogger(service, nil)
+}
+
+func NewRouterWithLogger(service *flow.Service, logger FailureLogger) http.Handler {
+	router := http.NewServeMux()
+	config := huma.DefaultConfig("Identity API", apiVersion)
+	config.OpenAPIPath = "/identity/v1/openapi"
+	config.DocsPath = "/identity/v1/docs"
+	config.SchemasPath = "/identity/v1/schemas"
+	config.Info.Description = "This is an identity management API server."
+
+	api := humago.New(router, config)
+	NewHandlerWithLogger(service, logger).Register(api)
+
+	return newSafeRouter(router)
 }
 
 func NewHandler(service *flow.Service) *Handler {
+	return NewHandlerWithLogger(service, nil)
+}
+
+func NewHandlerWithLogger(service *flow.Service, logger FailureLogger) *Handler {
+	if logger == nil {
+		logger = standardFailureLogger{}
+	}
+
 	return &Handler{
 		service: service,
+		logger:  logger,
 	}
 }
 
@@ -80,13 +131,18 @@ func (h *Handler) CreateUser(ctx context.Context, input *CreateUserInput) (*Crea
 
 	_, err := h.service.CreateUser(ctx, user)
 	if err != nil {
+		category := internalFailureCategory
+
 		switch {
 		case errors.Is(err, flow.ErrUserExists):
-			return nil, huma.Error409Conflict(err.Error())
-		case errors.Is(err, flow.ErrUnknown):
-			return nil, huma.Error500InternalServerError(err.Error())
+			category = "user_exists"
+			h.logger.LogFailure("create_user", category)
+
+			return nil, huma.Error409Conflict(createUserConflictMessage)
 		default:
-			return nil, huma.Error500InternalServerError(err.Error())
+			h.logger.LogFailure("create_user", category)
+
+			return nil, huma.Error500InternalServerError(internalServerErrorMessage)
 		}
 	}
 
@@ -98,13 +154,18 @@ func (h *Handler) CreateToken(ctx context.Context, input *CreateTokenInput) (*Cr
 
 	token, err := h.service.CreateToken(ctx, user)
 	if err != nil {
+		category := internalFailureCategory
+
 		switch {
 		case errors.Is(err, flow.ErrUserNotFound), errors.Is(err, flow.ErrAuthenticationFailed):
-			return nil, huma.Error401Unauthorized(err.Error())
-		case errors.Is(err, flow.ErrUnknown):
-			return nil, huma.Error500InternalServerError(err.Error())
+			category = "authentication_failed"
+			h.logger.LogFailure("create_token", category)
+
+			return nil, huma.Error401Unauthorized(authenticationErrorMessage)
 		default:
-			return nil, huma.Error500InternalServerError(err.Error())
+			h.logger.LogFailure("create_token", category)
+
+			return nil, huma.Error500InternalServerError(internalServerErrorMessage)
 		}
 	}
 
@@ -121,13 +182,18 @@ func (h *Handler) RefreshToken(
 
 	token, err := h.service.RefreshToken(ctx, spec)
 	if err != nil {
+		category := internalFailureCategory
+
 		switch {
 		case errors.Is(err, flow.ErrInvalidToken), errors.Is(err, flow.ErrUserNotFound):
-			return nil, huma.Error401Unauthorized(err.Error())
-		case errors.Is(err, flow.ErrUnknown):
-			return nil, huma.Error500InternalServerError(err.Error())
+			category = "invalid_refresh_token"
+			h.logger.LogFailure("refresh_token", category)
+
+			return nil, huma.Error401Unauthorized(refreshTokenErrorMessage)
 		default:
-			return nil, huma.Error500InternalServerError(err.Error())
+			h.logger.LogFailure("refresh_token", category)
+
+			return nil, huma.Error500InternalServerError(internalServerErrorMessage)
 		}
 	}
 

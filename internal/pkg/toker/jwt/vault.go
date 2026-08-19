@@ -57,11 +57,27 @@ func (v *Vault) DecryptRefresh(now time.Time, encryptedValue string) (*jwtClaims
 		return nil, err
 	}
 
-	if claims.TokenUse != "refresh" || claims.ID == "" || claims.FamilyID == "" {
+	if !validRefreshClaims(now, claims) {
 		return nil, core.ErrInvalidToken
 	}
 
 	return claims, nil
+}
+
+func validRefreshClaims(now time.Time, claims *jwtClaims) bool {
+	if claims.TokenUse != "refresh" || claims.Username == "" || claims.Subject != claims.Username {
+		return false
+	}
+
+	if claims.ID == "" || claims.FamilyID == "" || claims.ExpiresAt == nil || claims.IssuedAt == nil {
+		return false
+	}
+
+	if claims.IssuedAt.After(now) {
+		return false
+	}
+
+	return claims.NotBefore == nil || !claims.NotBefore.After(now)
 }
 
 func (v *Vault) decryptClaims(now time.Time, encryptedValue string) (*jwtClaims, error) {
@@ -75,18 +91,7 @@ func (v *Vault) decryptClaims(now time.Time, encryptedValue string) (*jwtClaims,
 		return v.secretKey, nil
 	}, jwt.WithTimeFunc(func() time.Time { return now }))
 	if err != nil {
-		switch {
-		case errors.Is(err, jwt.ErrTokenMalformed):
-			return nil, core.ErrInvalidToken
-		case errors.Is(err, jwt.ErrTokenSignatureInvalid):
-			return nil, core.ErrInvalidToken
-		case errors.Is(err, jwt.ErrTokenExpired):
-			return nil, core.ErrInvalidToken
-		case errors.Is(err, ErrInvalidMethod):
-			return nil, core.ErrInvalidToken
-		default:
-			return nil, fmt.Errorf("failed to parse token: %w", err)
-		}
+		return nil, core.ErrInvalidToken
 	}
 
 	return &claims, nil
