@@ -25,7 +25,7 @@ func (r *Repository) CreateUser(ctx context.Context, user *domain.User) (*domain
 		return nil, core.ErrUserExists
 	}
 
-	r.users[user.Username()] = user
+	r.users[user.Username()] = domain.NewUserWithPasswordHash(user.Username(), user.PasswordHash())
 
 	return user, nil
 }
@@ -36,5 +36,5 @@ func (r *Repository) GetUser(ctx context.Context, username string) (*domain.User
 		return nil, core.ErrUserNotFound
 	}
 
-	return ret, nil
+	return domain.NewUserWithPasswordHash(ret.Username(), ret.PasswordHash()), nil
 }

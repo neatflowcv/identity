@@ -9,6 +9,7 @@ import (
 
 	"github.com/neatflowcv/identity/cmd/identity/model"
 	"github.com/neatflowcv/identity/internal/app/flow"
+	"github.com/neatflowcv/identity/internal/pkg/hasher/argon"
 	"github.com/neatflowcv/identity/internal/pkg/repository/fake"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,19 @@ import (
 
 func newTestRouter() http.Handler {
 	toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
-	service := flow.NewService(toker, fake.NewRepository())
+
+	hasher, err := argon.NewArgon2id(argon.Parameters{
+		Memory:      8 * 1024,
+		Iterations:  1,
+		Parallelism: 1,
+		SaltLength:  16,
+		KeyLength:   32,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	service := flow.NewService(toker, fake.NewRepository(), hasher)
 
 	return NewRouter(service)
 }

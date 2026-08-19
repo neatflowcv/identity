@@ -5,6 +5,7 @@ import (
 
 	"github.com/neatflowcv/identity/internal/app/flow"
 	"github.com/neatflowcv/identity/internal/pkg/domain"
+	"github.com/neatflowcv/identity/internal/pkg/hasher/argon"
 	"github.com/neatflowcv/identity/internal/pkg/repository/fake"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 	"github.com/stretchr/testify/require"
@@ -16,26 +17,29 @@ func TestCreateUser(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(nil, fake.NewRepository())
+		service := flow.NewService(nil, fake.NewRepository(), testHasher(t))
 		ctx := t.Context()
 		user := domain.NewUser("test", "test")
 
 		ret, err := service.CreateUser(ctx, user)
 
 		require.NoError(t, err)
-		require.Equal(t, user, ret)
+		require.Equal(t, user.Username(), ret.Username())
+		require.NotEmpty(t, ret.PasswordHash())
+		require.NotContains(t, ret.PasswordHash(), user.Password())
 	})
 
 	t.Run("user already exists", func(t *testing.T) {
 		t.Parallel()
 
 		repo := fake.NewRepository()
-		_, _ = repo.CreateUser(t.Context(), domain.NewUser("test", "test"))
-		service := flow.NewService(nil, repo)
+		service := flow.NewService(nil, repo, testHasher(t))
+		_, err := service.CreateUser(t.Context(), domain.NewUser("test", "test"))
+		require.NoError(t, err)
 		ctx := t.Context()
 		user := domain.NewUser("test", "test")
 
-		_, err := service.CreateUser(ctx, user)
+		_, err = service.CreateUser(ctx, user)
 
 		require.ErrorIs(t, err, flow.ErrUserExists)
 	})
@@ -49,11 +53,12 @@ func TestCreateToken(t *testing.T) {
 
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
-		_, _ = repo.CreateUser(t.Context(), user)
 		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
 
-		service := flow.NewService(toker, repo)
+		service := flow.NewService(toker, repo, testHasher(t))
 		ctx := t.Context()
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
 
 		ret, err := service.CreateToken(ctx, user)
 
@@ -67,7 +72,7 @@ func TestCreateToken(t *testing.T) {
 	t.Run("user not found", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(nil, fake.NewRepository())
+		service := flow.NewService(nil, fake.NewRepository(), testHasher(t))
 		ctx := t.Context()
 		user := domain.NewUser("test", "test")
 
@@ -79,13 +84,15 @@ func TestCreateToken(t *testing.T) {
 	t.Run("authentication failed", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(nil, fake.NewRepository())
+		service := flow.NewService(nil, fake.NewRepository(), testHasher(t))
 		ctx := t.Context()
 		rightUser := domain.NewUser("test", "test")
-		_, _ = service.CreateUser(ctx, rightUser)
+		_, err := service.CreateUser(ctx, rightUser)
+		require.NoError(t, err)
+
 		wrongUser := domain.NewUser("test", "wrong-password")
 
-		_, err := service.CreateToken(ctx, wrongUser)
+		_, err = service.CreateToken(ctx, wrongUser)
 
 		require.ErrorIs(t, err, flow.ErrAuthenticationFailed)
 	})
@@ -99,11 +106,14 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
-		_, _ = repo.CreateUser(t.Context(), user)
 		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
-		service := flow.NewService(toker, repo)
+		service := flow.NewService(toker, repo, testHasher(t))
 		ctx := t.Context()
-		initialToken, _ := service.CreateToken(ctx, user)
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
+		initialToken, err := service.CreateToken(ctx, user)
+		require.NoError(t, err)
+
 		spec := domain.NewTokenSpec(initialToken.AccessToken(), initialToken.RefreshToken())
 
 		newToken, err := service.RefreshToken(ctx, spec)
@@ -120,7 +130,11 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 	t.Run("invalid token", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")), fake.NewRepository())
+		service := flow.NewService(
+			jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")),
+			fake.NewRepository(),
+			testHasher(t),
+		)
 		ctx := t.Context()
 		spec := domain.NewTokenSpec("invalid-access-token", "invalid-refresh-token")
 
@@ -134,16 +148,19 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
-		_, _ = repo.CreateUser(t.Context(), user)
 		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
-		service := flow.NewService(toker, repo)
+		service := flow.NewService(toker, repo, testHasher(t))
 		ctx := t.Context()
-		token, _ := service.CreateToken(ctx, user)
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
+		token, err := service.CreateToken(ctx, user)
+		require.NoError(t, err)
+
 		spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
 		emptyRepo := fake.NewRepository()
-		serviceWithEmptyRepo := flow.NewService(toker, emptyRepo)
+		serviceWithEmptyRepo := flow.NewService(toker, emptyRepo, testHasher(t))
 
-		_, err := serviceWithEmptyRepo.RefreshToken(ctx, spec)
+		_, err = serviceWithEmptyRepo.RefreshToken(ctx, spec)
 
 		require.ErrorIs(t, err, flow.ErrUserNotFound)
 	})
@@ -151,7 +168,11 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 	t.Run("empty token spec", func(t *testing.T) {
 		t.Parallel()
 
-		service := flow.NewService(jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")), fake.NewRepository())
+		service := flow.NewService(
+			jwt.NewToker([]byte("test-public-key"), []byte("test-private-key")),
+			fake.NewRepository(),
+			testHasher(t),
+		)
 		ctx := t.Context()
 		spec := domain.NewTokenSpec("", "")
 
@@ -165,14 +186,31 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 
 		repo := fake.NewRepository()
 		user := domain.NewUser("test", "test")
-		_, _ = repo.CreateUser(t.Context(), user)
 		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
-		service := flow.NewService(toker, repo)
+		service := flow.NewService(toker, repo, testHasher(t))
 		ctx := t.Context()
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
+
 		expiredSpec := domain.NewTokenSpec("expired.token.here", "expired.refresh.here")
 
-		_, err := service.RefreshToken(ctx, expiredSpec)
+		_, err = service.RefreshToken(ctx, expiredSpec)
 
 		require.ErrorIs(t, err, flow.ErrInvalidToken)
 	})
+}
+
+func testHasher(t *testing.T) *argon.Argon2id {
+	t.Helper()
+
+	hasher, err := argon.NewArgon2id(argon.Parameters{
+		Memory:      8 * 1024,
+		Iterations:  1,
+		Parallelism: 1,
+		SaltLength:  16,
+		KeyLength:   32,
+	})
+	require.NoError(t, err)
+
+	return hasher
 }

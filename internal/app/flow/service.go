@@ -6,19 +6,26 @@ import (
 	"time"
 
 	"github.com/neatflowcv/identity/internal/pkg/domain"
+	"github.com/neatflowcv/identity/internal/pkg/hasher"
 	corerepository "github.com/neatflowcv/identity/internal/pkg/repository/core"
 	coretoker "github.com/neatflowcv/identity/internal/pkg/toker/core"
 )
 
 type Service struct {
-	toker      coretoker.Toker
-	repository corerepository.Repository
+	toker          coretoker.Toker
+	repository     corerepository.Repository
+	passwordHasher hasher.Hasher
 }
 
-func NewService(toker coretoker.Toker, repository corerepository.Repository) *Service {
+func NewService(
+	toker coretoker.Toker,
+	repository corerepository.Repository,
+	passwordHasher hasher.Hasher,
+) *Service {
 	return &Service{
-		toker:      toker,
-		repository: repository,
+		toker:          toker,
+		repository:     repository,
+		passwordHasher: passwordHasher,
 	}
 }
 
@@ -27,7 +34,14 @@ func NewService(toker coretoker.Toker, repository corerepository.Repository) *Se
 //   - ErrUserExists: when a user with the same username already exists
 //   - ErrUnknown: for any other unexpected errors
 func (s *Service) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
-	dUser, err := s.repository.CreateUser(ctx, user)
+	hash, err := s.passwordHasher.Hash(user.Password())
+	if err != nil {
+		return nil, errors.Join(ErrUnknown, err)
+	}
+
+	storedUser := domain.NewUserWithPasswordHash(user.Username(), hash)
+
+	dUser, err := s.repository.CreateUser(ctx, storedUser)
 	if err != nil {
 		return nil, mappingError(err, corerepository.ErrUserExists, ErrUserExists)
 	}
@@ -48,7 +62,12 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 		return nil, mappingError(err, corerepository.ErrUserNotFound, ErrUserNotFound)
 	}
 
-	if !dUser.EqualPassword(user) {
+	verified, err := s.passwordHasher.Verify(user.Password(), dUser.PasswordHash())
+	if err != nil {
+		return nil, errors.Join(ErrUnknown, err)
+	}
+
+	if !verified {
 		return nil, ErrAuthenticationFailed
 	}
 

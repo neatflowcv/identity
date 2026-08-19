@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/neatflowcv/identity/internal/app/flow"
+	"github.com/neatflowcv/identity/internal/pkg/hasher/argon"
 	"github.com/neatflowcv/identity/internal/pkg/repository/orm"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 )
@@ -45,7 +46,9 @@ func main() {
 		log.Fatal("Failed to initialize repository:", err)
 	}
 
-	service := flow.NewService(toker, repo)
+	hasher := argon.NewDefaultArgon2id()
+
+	service := flow.NewService(toker, repo, hasher)
 	router := NewRouter(service)
 
 	log.Printf("Starting server on :%d", port)

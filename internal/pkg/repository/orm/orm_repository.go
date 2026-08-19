@@ -15,8 +15,8 @@ import (
 var _ core.Repository = (*Repository)(nil)
 
 type UserModel struct {
-	Username string `gorm:"primaryKey;column:username"`
-	Password string `gorm:"column:password;not null"`
+	Username     string `gorm:"primaryKey;column:username"`
+	PasswordHash string `gorm:"column:password_hash"`
 }
 
 func (UserModel) TableName() string {
@@ -47,8 +47,8 @@ func NewRepository(dsn string) (*Repository, error) {
 
 func (r *Repository) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
 	model := &UserModel{
-		Username: user.Username(),
-		Password: user.Password(),
+		Username:     user.Username(),
+		PasswordHash: user.PasswordHash(),
 	}
 
 	err := r.db.WithContext(ctx).Create(model).Error
@@ -63,11 +63,12 @@ func (r *Repository) CreateUser(ctx context.Context, user *domain.User) (*domain
 
 	return user, nil
 }
-
 func (r *Repository) GetUser(ctx context.Context, username string) (*domain.User, error) {
 	var model UserModel
 
-	err := r.db.WithContext(ctx).First(&model, UserModel{Username: username}).Error //nolint:exhaustruct
+	err := r.db.WithContext(ctx).
+		Select("username", "password_hash").
+		First(&model, UserModel{Username: username}).Error //nolint:exhaustruct
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, core.ErrUserNotFound
@@ -76,7 +77,7 @@ func (r *Repository) GetUser(ctx context.Context, username string) (*domain.User
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	user := domain.NewUser(model.Username, model.Password)
+	user := domain.NewUserWithPasswordHash(model.Username, model.PasswordHash)
 
 	return user, nil
 }
