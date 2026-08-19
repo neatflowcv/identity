@@ -41,17 +41,17 @@ spec:
         livenessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - postgres
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - postgres
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 5
           periodSeconds: 5
         resources:
@@ -64,4 +64,4 @@ spec:
       volumes:
       - name: postgresql-storage
         persistentVolumeClaim:
-          claimName: postgresql-pvc 
+          claimName: postgresql-pvc

@@ -5,7 +5,6 @@ namespace: identity
 
 resources:
   - namespace.yaml
-  - postgresql-secret.yaml
   - postgresql-configmap.yaml
   - postgresql-pvc.yaml
   - postgresql-deployment.yaml
@@ -20,4 +19,4 @@ labels:
     includeTemplates: true
     pairs:
       app: identity-postgresql
-      version: v1.0.0 
+      version: v1.0.0
