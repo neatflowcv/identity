@@ -108,7 +108,7 @@ func publicErrorMessage(status int, responseBody []byte) string {
 		status == http.StatusRequestEntityTooLarge,
 		status == http.StatusUnsupportedMediaType,
 		status == http.StatusUnprocessableEntity:
-		return "invalid request"
+		return invalidRequestMessage
 	default:
 		return "request failed"
 	}

@@ -36,6 +36,8 @@ const (
 	refreshTokenID    = "token-id"
 	refreshFamilyID   = "family-id"
 	refreshUse        = "refresh"
+	createUserPath    = "/identity/v1/users"
+	createTokenPath   = "/identity/v1/tokens"
 )
 
 var errInternalCause = errors.New("password hash backend failed: internal-detail")
@@ -101,7 +103,7 @@ func TestHTTPInputErrorsDoNotEchoSensitiveValues(t *testing.T) {
 	}{
 		{
 			name:   "malformed login JSON",
-			path:   "/identity/v1/tokens",
+			path:   createTokenPath,
 			body:   `{"user":{"username":"sensitive-user","password":"` + sensitivePassword + `"}`,
 			secret: sensitivePassword,
 		},
@@ -125,6 +127,59 @@ func TestHTTPInputErrorsDoNotEchoSensitiveValues(t *testing.T) {
 
 			response := postJSON(t, router, testCase.path, testCase.body)
 			assertSafeInputError(t, response, testCase.secret)
+		})
+	}
+}
+
+func TestCredentialFieldsCannotBeEmpty(t *testing.T) {
+	t.Parallel()
+
+	router := newRouter(flow.NewService(nil, nil, nil))
+	cases := []struct {
+		name     string
+		path     string
+		username string
+		password string
+	}{
+		{
+			name:     "create user rejects empty username",
+			path:     createUserPath,
+			username: "",
+			password: "password",
+		},
+		{
+			name:     "create user rejects empty password",
+			path:     createUserPath,
+			username: "username",
+			password: "",
+		},
+		{
+			name:     "create token rejects empty username",
+			path:     createTokenPath,
+			username: "",
+			password: "password",
+		},
+		{
+			name:     "create token rejects empty password",
+			path:     createTokenPath,
+			username: "username",
+			password: "",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			response := postJSON(
+				t,
+				router,
+				testCase.path,
+				`{"user":{"username":"`+testCase.username+`","password":"`+testCase.password+`"}}`,
+			)
+
+			require.Equal(t, http.StatusBadRequest, response.Code)
+			require.Contains(t, response.Body.String(), "invalid request")
 		})
 	}
 }
@@ -284,7 +339,7 @@ func postToken(t *testing.T, router http.Handler, username string, password stri
 	request := httptest.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/identity/v1/tokens",
+		createTokenPath,
 		strings.NewReader(body),
 	)
 	request.Header.Set("Content-Type", "application/json")
@@ -300,7 +355,7 @@ func postUser(t *testing.T, router http.Handler, username string, password strin
 
 	body := `{"user":{"username":"` + username + `","password":"` + password + `"}}`
 
-	return postJSON(t, router, "/identity/v1/users", body)
+	return postJSON(t, router, createUserPath, body)
 }
 
 func postRefresh(t *testing.T, router http.Handler, refreshToken string) *httptest.ResponseRecorder {

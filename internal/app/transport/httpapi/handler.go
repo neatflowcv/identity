@@ -25,6 +25,7 @@ const (
 	internalServerErrorMessage = "internal server error"
 	authenticationErrorMessage = "invalid username or password"
 	refreshTokenErrorMessage   = "invalid refresh token"
+	invalidRequestMessage      = "invalid request"
 )
 
 // FailureLogger records a non-sensitive error classification for an HTTP
@@ -102,7 +103,7 @@ func (h *Handler) Register(api huma.API) {
 		Summary:     "Create a new user",
 		Description: "Create a new user with username and password.",
 		Tags:        []string{"users"},
-		Errors:      []int{http.StatusConflict, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusConflict, http.StatusInternalServerError},
 	}, h.CreateUser)
 
 	huma.Register(api, huma.Operation{ //nolint:exhaustruct
@@ -112,7 +113,7 @@ func (h *Handler) Register(api huma.API) {
 		Summary:     "Create a new authentication token",
 		Description: "Authenticate a user with username and password and return a token.",
 		Tags:        []string{"auth"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusInternalServerError},
 	}, h.CreateToken)
 
 	huma.Register(api, huma.Operation{ //nolint:exhaustruct
@@ -127,9 +128,14 @@ func (h *Handler) Register(api huma.API) {
 }
 
 func (h *Handler) CreateUser(ctx context.Context, input *CreateUserInput) (*CreateUserOutput, error) {
+	err := validateCredentials(input.Body.User.UserName, input.Body.User.Password)
+	if err != nil {
+		return nil, err
+	}
+
 	user := domain.NewUser(input.Body.User.UserName, input.Body.User.Password)
 
-	_, err := h.service.CreateUser(ctx, user)
+	_, err = h.service.CreateUser(ctx, user)
 	if err != nil {
 		category := internalFailureCategory
 
@@ -150,6 +156,11 @@ func (h *Handler) CreateUser(ctx context.Context, input *CreateUserInput) (*Crea
 }
 
 func (h *Handler) CreateToken(ctx context.Context, input *CreateTokenInput) (*CreateTokenOutput, error) {
+	err := validateCredentials(input.Body.User.UserName, input.Body.User.Password)
+	if err != nil {
+		return nil, err
+	}
+
 	user := domain.NewUser(input.Body.User.UserName, input.Body.User.Password)
 
 	token, err := h.service.CreateToken(ctx, user)
@@ -200,6 +211,14 @@ func (h *Handler) RefreshToken(
 	return &RefreshTokenOutput{
 		Body: refreshTokenResponse(token),
 	}, nil
+}
+
+func validateCredentials(username string, password string) error {
+	if username == "" || password == "" {
+		return huma.Error400BadRequest(invalidRequestMessage)
+	}
+
+	return nil
 }
 
 func tokenResponse(token *domain.Token) model.CreateTokenResponse {
