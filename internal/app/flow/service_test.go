@@ -1,6 +1,7 @@
 package flow_test
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/neatflowcv/identity/internal/app/flow"
@@ -125,6 +126,77 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		require.NotZero(t, newToken.ExpiresIn())
 		require.Equal(t, user.Username(), newToken.Payload().Username())
 		require.Equal(t, domain.TokenTypeBearer, newToken.TokenType())
+	})
+
+	t.Run("previous refresh token is rejected and revokes the family", func(t *testing.T) {
+		t.Parallel()
+
+		repo := fake.NewRepository()
+		user := domain.NewUser("test", "test")
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
+		service := flow.NewService(toker, repo, testHasher(t))
+		ctx := t.Context()
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
+		initialToken, err := service.CreateToken(ctx, user)
+		require.NoError(t, err)
+
+		rotatedToken, err := service.RefreshToken(ctx, domain.NewTokenSpec(initialToken.RefreshToken()))
+		require.NoError(t, err)
+
+		_, err = service.RefreshToken(ctx, domain.NewTokenSpec(initialToken.RefreshToken()))
+		require.ErrorIs(t, err, flow.ErrInvalidToken)
+
+		_, err = service.RefreshToken(ctx, domain.NewTokenSpec(rotatedToken.RefreshToken()))
+		require.ErrorIs(t, err, flow.ErrInvalidToken)
+	})
+
+	t.Run("concurrent refresh has one successful rotation", func(t *testing.T) {
+		t.Parallel()
+
+		repo := fake.NewRepository()
+		user := domain.NewUser("test", "test")
+		toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
+		service := flow.NewService(toker, repo, testHasher(t))
+		ctx := t.Context()
+		_, err := service.CreateUser(ctx, user)
+		require.NoError(t, err)
+		initialToken, err := service.CreateToken(ctx, user)
+		require.NoError(t, err)
+
+		var waitGroup sync.WaitGroup
+
+		results := make(chan error, 2)
+
+		for range 2 {
+			waitGroup.Go(func() {
+				_, refreshErr := service.RefreshToken(ctx, domain.NewTokenSpec(initialToken.RefreshToken()))
+				results <- refreshErr
+			})
+		}
+
+		waitGroup.Wait()
+
+		close(results)
+
+		successes := 0
+
+		invalidTokens := 0
+
+		for refreshErr := range results {
+			if refreshErr == nil {
+				successes++
+
+				continue
+			}
+
+			require.ErrorIs(t, refreshErr, flow.ErrInvalidToken, "unexpected refresh error: %v", refreshErr)
+
+			invalidTokens++
+		}
+
+		require.Equal(t, 1, successes)
+		require.Equal(t, 1, invalidTokens)
 	})
 
 	t.Run("invalid token", func(t *testing.T) {

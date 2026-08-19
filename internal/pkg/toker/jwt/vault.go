@@ -21,15 +21,21 @@ func NewVault(secretKey []byte) *Vault {
 }
 
 func (v *Vault) Encrypt(issuedAt time.Time, expiresAt time.Time, user *domain.User) (string, error) {
-	accessTokenClaims := newJWTClaims(user, issuedAt, expiresAt)
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessTokenClaims)
+	accessTokenClaims := newJWTClaims(user, issuedAt, expiresAt, "access", "", "")
 
-	accessTokenString, err := accessToken.SignedString(v.secretKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign access token: %w", err)
-	}
+	return v.encrypt(accessTokenClaims)
+}
 
-	return accessTokenString, nil
+func (v *Vault) EncryptRefresh(
+	issuedAt time.Time,
+	expiresAt time.Time,
+	user *domain.User,
+	tokenID string,
+	familyID string,
+) (string, error) {
+	refreshTokenClaims := newJWTClaims(user, issuedAt, expiresAt, "refresh", tokenID, familyID)
+
+	return v.encrypt(refreshTokenClaims)
 }
 
 var (
@@ -37,6 +43,28 @@ var (
 )
 
 func (v *Vault) Decrypt(now time.Time, encryptedValue string) (string, error) {
+	claims, err := v.decryptClaims(now, encryptedValue)
+	if err != nil {
+		return "", err
+	}
+
+	return claims.Username, nil
+}
+
+func (v *Vault) DecryptRefresh(now time.Time, encryptedValue string) (*jwtClaims, error) {
+	claims, err := v.decryptClaims(now, encryptedValue)
+	if err != nil {
+		return nil, err
+	}
+
+	if claims.TokenUse != "refresh" || claims.ID == "" || claims.FamilyID == "" {
+		return nil, core.ErrInvalidToken
+	}
+
+	return claims, nil
+}
+
+func (v *Vault) decryptClaims(now time.Time, encryptedValue string) (*jwtClaims, error) {
 	var claims jwtClaims
 
 	_, err := jwt.ParseWithClaims(encryptedValue, &claims, func(token *jwt.Token) (any, error) {
@@ -49,17 +77,28 @@ func (v *Vault) Decrypt(now time.Time, encryptedValue string) (string, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, jwt.ErrTokenMalformed):
-			return "", core.ErrInvalidToken
+			return nil, core.ErrInvalidToken
 		case errors.Is(err, jwt.ErrTokenSignatureInvalid):
-			return "", core.ErrInvalidToken
+			return nil, core.ErrInvalidToken
 		case errors.Is(err, jwt.ErrTokenExpired):
-			return "", core.ErrInvalidToken
+			return nil, core.ErrInvalidToken
 		case errors.Is(err, ErrInvalidMethod):
-			return "", core.ErrInvalidToken
+			return nil, core.ErrInvalidToken
 		default:
-			return "", fmt.Errorf("failed to parse token: %w", err)
+			return nil, fmt.Errorf("failed to parse token: %w", err)
 		}
 	}
 
-	return claims.Username, nil
+	return &claims, nil
+}
+
+func (v *Vault) encrypt(claims *jwtClaims) (string, error) {
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	accessTokenString, err := accessToken.SignedString(v.secretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign access token: %w", err)
+	}
+
+	return accessTokenString, nil
 }

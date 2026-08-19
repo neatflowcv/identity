@@ -2,6 +2,8 @@ package flow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -74,6 +76,23 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 	policy := domain.NewTokenPolicy()
 	token := s.toker.CreateToken(now, dUser, policy)
 
+	claims, err := s.toker.ParseRefreshToken(now, domain.NewTokenSpec(token.RefreshToken()))
+	if err != nil {
+		return nil, errors.Join(ErrUnknown, err)
+	}
+
+	err = s.repository.CreateRefreshSession(ctx, &domain.RefreshSession{
+		FamilyID:  claims.FamilyID,
+		Username:  claims.Username,
+		TokenID:   claims.TokenID,
+		TokenHash: hashRefreshToken(token.RefreshToken()),
+		ExpiresAt: now.Add(policy.RefreshTokenTTL()),
+		RevokedAt: nil,
+	})
+	if err != nil {
+		return nil, errors.Join(ErrUnknown, err)
+	}
+
 	return token, nil
 }
 
@@ -85,21 +104,45 @@ func (s *Service) CreateToken(ctx context.Context, user *domain.User) (*domain.T
 func (s *Service) RefreshToken(ctx context.Context, spec *domain.TokenSpec) (*domain.Token, error) {
 	now := time.Now()
 
-	username, err := s.toker.ParseToken(now, spec)
+	claims, err := s.toker.ParseRefreshToken(now, spec)
 	if err != nil {
 		return nil, mappingError(err, coretoker.ErrInvalidToken, ErrInvalidToken)
 	}
 
-	dUser, err := s.repository.GetUser(ctx, string(username))
+	dUser, err := s.repository.GetUser(ctx, string(claims.Username))
 	if err != nil {
 		return nil, mappingError(err, corerepository.ErrUserNotFound, ErrUserNotFound)
 	}
 
 	policy := domain.NewTokenPolicy()
 
-	token := s.toker.CreateToken(now, dUser, policy)
+	token := s.toker.CreateTokenWithFamily(now, dUser, policy, claims.FamilyID)
+
+	nextClaims, err := s.toker.ParseRefreshToken(now, domain.NewTokenSpec(token.RefreshToken()))
+	if err != nil {
+		return nil, errors.Join(ErrUnknown, err)
+	}
+
+	err = s.repository.RotateRefreshToken(ctx, &domain.RefreshTokenRotation{
+		FamilyID:       claims.FamilyID,
+		CurrentTokenID: claims.TokenID,
+		CurrentHash:    hashRefreshToken(spec.RefreshToken()),
+		NextTokenID:    nextClaims.TokenID,
+		NextHash:       hashRefreshToken(token.RefreshToken()),
+		ExpiresAt:      now.Add(policy.RefreshTokenTTL()),
+		Now:            now,
+	})
+	if err != nil {
+		return nil, mappingError(err, corerepository.ErrRefreshTokenInvalid, ErrInvalidToken)
+	}
 
 	return token, nil
+}
+
+func hashRefreshToken(token string) string {
+	digest := sha256.Sum256([]byte(token))
+
+	return hex.EncodeToString(digest[:])
 }
 
 func mappingError(err error, from error, to error) error {

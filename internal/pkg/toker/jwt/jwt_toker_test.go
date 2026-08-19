@@ -85,6 +85,19 @@ func TestJWTToker_ParseToken_RequiresRefreshToken(t *testing.T) {
 	}
 }
 
+func TestJWTToker_ParseToken_RejectsAccessToken(t *testing.T) {
+	t.Parallel()
+
+	toker := jwt.NewToker([]byte("test-public-key"), []byte("test-private-key"))
+	user := domain.NewUser("testuser", "password123")
+	now := time.Unix(0, 0)
+	token := toker.CreateToken(now, user, domain.NewTokenPolicy())
+
+	_, err := toker.ParseToken(now, domain.NewTokenSpec(token.AccessToken()))
+
+	require.ErrorIs(t, err, core.ErrInvalidToken)
+}
+
 func TestJWTToker_ParseToken_InvalidToken(t *testing.T) {
 	t.Parallel()
 
