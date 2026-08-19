@@ -10,38 +10,26 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/neatflowcv/identity/internal/app/flow"
+	"github.com/neatflowcv/identity/internal/pkg/config"
 	"github.com/neatflowcv/identity/internal/pkg/hasher/argon"
 	"github.com/neatflowcv/identity/internal/pkg/repository/orm"
 	"github.com/neatflowcv/identity/internal/pkg/toker/jwt"
 )
 
 const (
-	defaultPort       = 8080
 	apiVersion        = "1.0.0"
 	readHeaderTimeout = 5 * time.Second
 )
 
 func main() {
-	port := defaultPort
-	portValue := os.Getenv("PORT")
-
-	if portValue != "" {
-		parsedPort, err := strconv.Atoi(portValue)
-		if err != nil || parsedPort < 1 || parsedPort > 65535 {
-			log.Fatal("Invalid PORT: must be an integer between 1 and 65535")
-		}
-
-		port = parsedPort
+	appConfig, err := config.Load(os.Getenv)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	toker := jwt.NewToker([]byte("public-key"), []byte("private-key"))
+	toker := jwt.NewToker(appConfig.JWTPublicKey, appConfig.JWTPrivateKey)
 
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "host=localhost user=postgres password=postgres dbname=identity port=5432 sslmode=disable TimeZone=Asia/Seoul"
-	}
-
-	repo, err := orm.NewRepository(dsn)
+	repo, err := orm.NewRepository(appConfig.DatabaseURL)
 	if err != nil {
 		log.Fatal("Failed to initialize repository:", err)
 	}
@@ -51,13 +39,13 @@ func main() {
 	service := flow.NewService(toker, repo, hasher)
 	router := NewRouter(service)
 
-	log.Printf("Starting server on :%d", port)
-	log.Printf("OpenAPI JSON available at http://localhost:%d/identity/v1/openapi.json", port)
-	log.Printf("OpenAPI YAML available at http://localhost:%d/identity/v1/openapi.yaml", port)
-	log.Printf("API docs available at http://localhost:%d/identity/v1/docs", port)
+	log.Printf("Starting server on :%d", appConfig.Port)
+	log.Printf("OpenAPI JSON available at http://localhost:%d/identity/v1/openapi.json", appConfig.Port)
+	log.Printf("OpenAPI YAML available at http://localhost:%d/identity/v1/openapi.yaml", appConfig.Port)
+	log.Printf("API docs available at http://localhost:%d/identity/v1/docs", appConfig.Port)
 
 	server := &http.Server{ //nolint:exhaustruct
-		Addr:              ":" + strconv.Itoa(port),
+		Addr:              ":" + strconv.Itoa(appConfig.Port),
 		Handler:           router,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
