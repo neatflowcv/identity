@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"errors"
 	"time"
 
 	"github.com/neatflowcv/identity/internal/pkg/domain"
@@ -47,18 +46,9 @@ func (t *Toker) CreateToken(now time.Time, user *domain.User, policy *domain.Tok
 
 func (t *Toker) ParseToken(now time.Time, spec *domain.TokenSpec) (domain.Username, error) {
 	refreshTokenUsername, err := t.privateVault.Decrypt(now, spec.RefreshToken())
-	if err == nil {
-		return domain.Username(refreshTokenUsername), nil
+	if err != nil {
+		return "", err
 	}
 
-	totalErr := err
-
-	accessTokenUsername, err := t.publicVault.Decrypt(now, spec.AccessToken())
-	if err == nil {
-		return domain.Username(accessTokenUsername), nil
-	}
-
-	totalErr = errors.Join(totalErr, err)
-
-	return "", totalErr
+	return domain.Username(refreshTokenUsername), nil
 }

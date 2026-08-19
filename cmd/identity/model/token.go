@@ -21,7 +21,6 @@ type RefreshTokenRequest struct {
 }
 
 type RefreshTokenBody struct {
-	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 

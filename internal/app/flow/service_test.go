@@ -114,7 +114,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		initialToken, err := service.CreateToken(ctx, user)
 		require.NoError(t, err)
 
-		spec := domain.NewTokenSpec(initialToken.AccessToken(), initialToken.RefreshToken())
+		spec := domain.NewTokenSpec(initialToken.RefreshToken())
 
 		newToken, err := service.RefreshToken(ctx, spec)
 
@@ -136,7 +136,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 			testHasher(t),
 		)
 		ctx := t.Context()
-		spec := domain.NewTokenSpec("invalid-access-token", "invalid-refresh-token")
+		spec := domain.NewTokenSpec("invalid-refresh-token")
 
 		_, err := service.RefreshToken(ctx, spec)
 
@@ -156,7 +156,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		token, err := service.CreateToken(ctx, user)
 		require.NoError(t, err)
 
-		spec := domain.NewTokenSpec(token.AccessToken(), token.RefreshToken())
+		spec := domain.NewTokenSpec(token.RefreshToken())
 		emptyRepo := fake.NewRepository()
 		serviceWithEmptyRepo := flow.NewService(toker, emptyRepo, testHasher(t))
 
@@ -174,7 +174,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 			testHasher(t),
 		)
 		ctx := t.Context()
-		spec := domain.NewTokenSpec("", "")
+		spec := domain.NewTokenSpec("")
 
 		_, err := service.RefreshToken(ctx, spec)
 
@@ -192,7 +192,7 @@ func TestRefreshToken(t *testing.T) { //nolint:funlen
 		_, err := service.CreateUser(ctx, user)
 		require.NoError(t, err)
 
-		expiredSpec := domain.NewTokenSpec("expired.token.here", "expired.refresh.here")
+		expiredSpec := domain.NewTokenSpec("expired.refresh.here")
 
 		_, err = service.RefreshToken(ctx, expiredSpec)
 

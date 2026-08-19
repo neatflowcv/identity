@@ -117,7 +117,7 @@ func (h *Handler) RefreshToken(
 	ctx context.Context,
 	input *RefreshTokenInput,
 ) (*RefreshTokenOutput, error) {
-	spec := domain.NewTokenSpec(input.Body.Token.AccessToken, input.Body.Token.RefreshToken)
+	spec := domain.NewTokenSpec(input.Body.Token.RefreshToken)
 
 	token, err := h.service.RefreshToken(ctx, spec)
 	if err != nil {

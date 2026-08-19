@@ -9,19 +9,13 @@ const (
 )
 
 type TokenSpec struct {
-	accessToken  string
 	refreshToken string
 }
 
-func NewTokenSpec(accessToken string, refreshToken string) *TokenSpec {
+func NewTokenSpec(refreshToken string) *TokenSpec {
 	return &TokenSpec{
-		accessToken:  accessToken,
 		refreshToken: refreshToken,
 	}
-}
-
-func (t *TokenSpec) AccessToken() string {
-	return t.accessToken
 }
 
 func (t *TokenSpec) RefreshToken() string {
